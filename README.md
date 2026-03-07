@@ -2,6 +2,57 @@
 
 Production-ready Terraform module for provisioning AWS EC2 instances with launch templates, instance profiles, EBS optimization, IMDSv2 enforcement, and SSM access.
 
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph VPC["VPC"]
+        subgraph Subnet["Private Subnet"]
+            EC2[EC2 Instance]
+            LT[Launch Template]
+            ENI[Network Interface]
+        end
+    end
+
+    subgraph Storage["EBS Storage"]
+        ROOT[Root Volume - Encrypted]
+        EBS1[Data Volume 1]
+        EBS2[Data Volume 2]
+    end
+
+    subgraph Security["Security"]
+        SG[Security Group]
+        IP[Instance Profile]
+        IMDS[IMDSv2 Enforced]
+    end
+
+    subgraph Management["Management"]
+        SSM[Systems Manager]
+        CW[CloudWatch Agent]
+        MON[Detailed Monitoring]
+    end
+
+    subgraph IAM["IAM Role"]
+        ROLE[EC2 Role]
+        ROLE --> P1[SSMManaged Policy]
+        ROLE --> P2[CloudWatch Policy]
+        ROLE --> P3[Custom Policies]
+    end
+
+    LT --> EC2
+    EC2 --> ENI
+    EC2 --> Storage
+    EC2 --> Security
+    EC2 --> Management
+    IP --> IAM
+
+    style VPC fill:#FF9900,color:#fff
+    style Storage fill:#1A73E8,color:#fff
+    style Security fill:#DD344C,color:#fff
+    style Management fill:#3F8624,color:#fff
+    style IAM fill:#8C4FFF,color:#fff
+```
+
 ## Features
 
 - **Launch Templates** - All instances are created via launch templates for consistent, versioned configurations
