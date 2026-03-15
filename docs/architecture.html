@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>terraform-aws-ec2-instance | Architecture Document</title>
+<style>
+  :root {
+    --ink: #0b0c0b;
+    --accent: #c8420a;
+    --text: #d4d4d4;
+    --text-muted: #888;
+    --surface: #141514;
+    --surface-alt: #1a1b1a;
+    --border: #2a2b2a;
+    --success: #2ea043;
+    --warning: #d29922;
+    --info: #388bfd;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+    background: var(--ink);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  h1, h2, h3 { color: #fff; font-weight: 600; }
+  h1 { font-size: 2rem; margin-bottom: 0.5rem; border-bottom: 3px solid var(--accent); padding-bottom: 0.75rem; }
+  h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+
+  .subtitle { color: var(--accent); font-size: 0.95rem; margin-bottom: 2rem; }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+  }
+
+  .card .metric {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .card .label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+  }
+
+  .exec-summary {
+    background: var(--surface);
+    border-left: 4px solid var(--accent);
+    padding: 1.5rem;
+    border-radius: 0 8px 8px 0;
+    margin: 1.5rem 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+
+  th {
+    background: var(--surface);
+    color: var(--accent);
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-bottom: 2px solid var(--accent);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tr:hover td { background: var(--surface-alt); }
+
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+
+  .flow-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    min-width: 800px;
+  }
+
+  .flow-row {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .flow-box {
+    background: var(--surface-alt);
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    padding: 0.75rem 1.25rem;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #fff;
+    min-width: 140px;
+  }
+
+  .flow-box.primary {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .flow-box.secondary {
+    border-color: var(--info);
+    background: rgba(56, 139, 253, 0.1);
+  }
+
+  .flow-box.tertiary {
+    border-color: var(--success);
+    background: rgba(46, 160, 67, 0.1);
+  }
+
+  .flow-arrow {
+    color: var(--accent);
+    font-size: 1.5rem;
+    line-height: 1;
+  }
+
+  .checklist {
+    list-style: none;
+    padding: 0;
+  }
+
+  .checklist li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .checklist li::before {
+    content: '';
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--success);
+    border-radius: 3px;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin: 0.15rem;
+  }
+
+  .tag-healthcare { background: rgba(56, 139, 253, 0.15); color: var(--info); border: 1px solid var(--info); }
+  .tag-finance { background: rgba(210, 153, 34, 0.15); color: var(--warning); border: 1px solid var(--warning); }
+  .tag-government { background: rgba(200, 66, 10, 0.15); color: var(--accent); border: 1px solid var(--accent); }
+  .tag-retail { background: rgba(46, 160, 67, 0.15); color: var(--success); border: 1px solid var(--success); }
+  .tag-saas { background: rgba(163, 113, 247, 0.15); color: #a371f7; border: 1px solid #a371f7; }
+
+  .industry-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+
+  .industry-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+
+  .industry-card h4 { margin-bottom: 0.5rem; color: #fff; }
+  .industry-card p { font-size: 0.85rem; color: var(--text-muted); }
+
+  code {
+    background: var(--surface);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--accent);
+  }
+
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 1rem 0;
+  }
+
+  .links-section a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+  }
+
+  .links-section a:hover { border-bottom-color: var(--accent); }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+
+  .data-flow-step {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 0.75rem 0;
+  }
+
+  .step-num {
+    background: var(--accent);
+    color: #fff;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .security-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 0.75rem 0;
+  }
+
+  .security-item h4 { color: var(--accent); font-size: 0.95rem; margin-bottom: 0.35rem; }
+  .security-item p { font-size: 0.85rem; color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<h1>terraform-aws-ec2-instance</h1>
+<div class="subtitle">Architecture Document &mdash; Production-Ready AWS EC2 Instance Module</div>
+
+<!-- Executive Summary -->
+<h2>Executive Summary</h2>
+<div class="exec-summary">
+  <p>Production-ready Terraform module for provisioning AWS EC2 instances with launch templates, IAM instance profiles, EBS optimization, IMDSv2 enforcement, and SSM access. The module supports encrypted root and additional EBS volumes, configurable security groups with ingress rules, user data scripts, and includes a sub-module for spot instance provisioning with configurable interruption behavior. All instances default to secure configurations including private networking, mandatory IMDSv2 tokens, and encrypted storage.</p>
+</div>
+
+<!-- Overview Cards -->
+<h2>Overview</h2>
+<div class="card-grid">
+  <div class="card">
+    <div class="metric">13</div>
+    <div class="label">Resources</div>
+  </div>
+  <div class="card">
+    <div class="metric">24</div>
+    <div class="label">Variables</div>
+  </div>
+  <div class="card">
+    <div class="metric">9</div>
+    <div class="label">Outputs</div>
+  </div>
+  <div class="card">
+    <div class="metric">1</div>
+    <div class="label">Sub-Modules</div>
+  </div>
+</div>
+
+<!-- Architecture Diagram -->
+<h2>Architecture Diagram</h2>
+<div class="arch-diagram">
+  <div class="flow-container">
+    <div class="flow-row">
+      <div class="flow-box secondary">VPC / Private Subnet</div>
+    </div>
+    <div class="flow-arrow">|</div>
+    <div class="flow-row">
+      <div class="flow-box">Launch Template<br><small>AMI + Instance Type</small></div>
+      <div class="flow-box primary">EC2 Instance<br><small>EBS-optimized</small></div>
+      <div class="flow-box">Network Interface<br><small>Private IP</small></div>
+    </div>
+    <div class="flow-arrow">|</div>
+    <div class="flow-row">
+      <div class="flow-box tertiary">Root Volume<br><small>gp3 / Encrypted</small></div>
+      <div class="flow-box tertiary">Additional EBS<br><small>Configurable</small></div>
+      <div class="flow-box">Security Group<br><small>Ingress rules</small></div>
+    </div>
+    <div class="flow-arrow">|</div>
+    <div class="flow-row">
+      <div class="flow-box secondary">IAM Role<br><small>Instance profile</small></div>
+      <div class="flow-box secondary">SSM Policy<br><small>Keyless access</small></div>
+      <div class="flow-box secondary">CloudWatch Policy<br><small>Monitoring agent</small></div>
+      <div class="flow-box secondary">IMDSv2<br><small>Required tokens</small></div>
+    </div>
+    <div class="flow-arrow">|</div>
+    <div class="flow-row">
+      <div class="flow-box tertiary">Detailed Monitoring<br><small>1-min metrics</small></div>
+      <div class="flow-box tertiary">Systems Manager<br><small>Session Manager</small></div>
+    </div>
+  </div>
+</div>
+
+<!-- Component Breakdown -->
+<h2>Component Breakdown</h2>
+<table>
+  <thead>
+    <tr><th>Resource</th><th>Type</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>aws_launch_template.this</code></td><td>resource</td><td>Versioned launch template with AMI, instance type, EBS, metadata options</td></tr>
+    <tr><td><code>aws_instance.this</code></td><td>resource</td><td>EC2 instance provisioned from launch template</td></tr>
+    <tr><td><code>aws_ebs_volume.this</code></td><td>resource</td><td>Additional EBS volumes with independent configurations</td></tr>
+    <tr><td><code>aws_volume_attachment.this</code></td><td>resource</td><td>Attaches additional EBS volumes to the instance</td></tr>
+    <tr><td><code>aws_security_group.this</code></td><td>resource</td><td>Security group for the EC2 instance</td></tr>
+    <tr><td><code>aws_security_group_rule.ingress</code></td><td>resource</td><td>Configurable ingress rules</td></tr>
+    <tr><td><code>aws_security_group_rule.egress</code></td><td>resource</td><td>Default allow-all egress rule</td></tr>
+    <tr><td><code>aws_network_interface.this</code></td><td>resource</td><td>Optional additional ENI</td></tr>
+    <tr><td><code>aws_iam_role.this</code></td><td>resource</td><td>IAM role for EC2 instance</td></tr>
+    <tr><td><code>aws_iam_instance_profile.this</code></td><td>resource</td><td>Instance profile linking IAM role</td></tr>
+    <tr><td><code>aws_iam_role_policy_attachment.ssm</code></td><td>resource</td><td>SSM Managed Instance Core policy</td></tr>
+    <tr><td><code>aws_iam_role_policy_attachment.cloudwatch</code></td><td>resource</td><td>CloudWatch Agent Server policy</td></tr>
+    <tr><td><code>aws_iam_role_policy_attachment.additional</code></td><td>resource</td><td>Additional custom IAM policy attachments</td></tr>
+  </tbody>
+</table>
+
+<!-- Data Flow -->
+<h2>Data Flow</h2>
+<div class="data-flow-step"><div class="step-num">1</div><div>Launch template defines the instance configuration: AMI, type, EBS settings, metadata options, and user data.</div></div>
+<div class="data-flow-step"><div class="step-num">2</div><div>EC2 instance is provisioned from the launch template in the specified VPC subnet with private networking.</div></div>
+<div class="data-flow-step"><div class="step-num">3</div><div>Security group controls inbound traffic via configurable ingress rules; egress is open by default.</div></div>
+<div class="data-flow-step"><div class="step-num">4</div><div>IAM instance profile grants the instance SSM access, CloudWatch permissions, and any additional policies.</div></div>
+<div class="data-flow-step"><div class="step-num">5</div><div>IMDSv2 enforcement requires session tokens for all metadata requests, preventing SSRF-based credential theft.</div></div>
+<div class="data-flow-step"><div class="step-num">6</div><div>Additional EBS volumes are created and attached to the instance with independent encryption and IOPS configurations.</div></div>
+
+<!-- Security Controls -->
+<h2>Security Controls</h2>
+<div class="security-item">
+  <h4>IMDSv2 Enforcement</h4>
+  <p>Instance Metadata Service v2 is required by default (<code>metadata_http_tokens = "required"</code>), preventing SSRF attacks that exploit IMDSv1.</p>
+</div>
+<div class="security-item">
+  <h4>EBS Encryption by Default</h4>
+  <p>Root and additional volumes are encrypted by default with optional customer-managed KMS keys.</p>
+</div>
+<div class="security-item">
+  <h4>Private Networking</h4>
+  <p>Instances are private by default (<code>associate_public_ip = false</code>), requiring explicit opt-in for public IP assignment.</p>
+</div>
+<div class="security-item">
+  <h4>SSM Access (Keyless SSH)</h4>
+  <p>Systems Manager access is enabled by default, eliminating the need for SSH key pairs and bastion hosts.</p>
+</div>
+<div class="security-item">
+  <h4>Least-Privilege IAM</h4>
+  <p>IAM role includes only SSM and CloudWatch policies by default; additional policies must be explicitly specified.</p>
+</div>
+<div class="security-item">
+  <h4>Metadata Hop Limit</h4>
+  <p>Metadata hop limit defaults to 1, preventing containers from accessing the host instance metadata service.</p>
+</div>
+
+<!-- Industry Adaptation -->
+<h2>Industry Adaptation</h2>
+<div class="industry-grid">
+  <div class="industry-card">
+    <h4><span class="tag tag-healthcare">Healthcare</span></h4>
+    <p>HIPAA-ready with encrypted volumes, private subnets, IMDSv2, and no public IPs. SSM access eliminates SSH key management compliance burden.</p>
+  </div>
+  <div class="industry-card">
+    <h4><span class="tag tag-finance">Finance</span></h4>
+    <p>Dedicated tenancy support for regulatory isolation. KMS-encrypted volumes for financial data. Detailed monitoring for SLA compliance metrics.</p>
+  </div>
+  <div class="industry-card">
+    <h4><span class="tag tag-government">Government</span></h4>
+    <p>GovCloud-compatible IAM policies. Restricted metadata access. Security group ingress whitelisting. Placement group support for HPC workloads.</p>
+  </div>
+  <div class="industry-card">
+    <h4><span class="tag tag-retail">Retail</span></h4>
+    <p>Spot sub-module for cost-optimized batch processing. User data for automated application bootstrapping. Multiple EBS volumes for data and log separation.</p>
+  </div>
+  <div class="industry-card">
+    <h4><span class="tag tag-saas">SaaS</span></h4>
+    <p>Launch template versioning for rolling deployments. Custom AMI support for golden image pipelines. Flexible security group rules for multi-tier architectures.</p>
+  </div>
+</div>
+
+<!-- Production Readiness Checklist -->
+<h2>Production Readiness Checklist</h2>
+<ul class="checklist">
+  <li>Enforce IMDSv2 with <code>metadata_http_tokens = "required"</code></li>
+  <li>Enable EBS encryption on root and all additional volumes</li>
+  <li>Disable public IP assignment unless explicitly required</li>
+  <li>Use SSM Session Manager instead of SSH key pairs</li>
+  <li>Attach only necessary IAM policies (least privilege)</li>
+  <li>Configure security group ingress rules for specific CIDR blocks only</li>
+  <li>Enable detailed monitoring for 1-minute CloudWatch metrics</li>
+  <li>Use gp3 volumes for cost-effective, high-performance storage</li>
+  <li>Set metadata hop limit to 1 to prevent container metadata access</li>
+  <li>Apply consistent tags for cost tracking and resource governance</li>
+</ul>
+
+<!-- Configuration Reference -->
+<h2>Configuration Reference</h2>
+<table>
+  <thead>
+    <tr><th>Variable</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>name</code></td><td>string</td><td>required</td><td>Name identifier for all resources</td></tr>
+    <tr><td><code>ami_id</code></td><td>string</td><td><code>""</code></td><td>AMI ID (defaults to latest AL2023)</td></tr>
+    <tr><td><code>instance_type</code></td><td>string</td><td><code>"t3.micro"</code></td><td>EC2 instance type</td></tr>
+    <tr><td><code>subnet_id</code></td><td>string</td><td>required</td><td>VPC subnet ID</td></tr>
+    <tr><td><code>vpc_id</code></td><td>string</td><td>required</td><td>VPC ID</td></tr>
+    <tr><td><code>enable_monitoring</code></td><td>bool</td><td><code>true</code></td><td>Enable detailed monitoring</td></tr>
+    <tr><td><code>ebs_optimized</code></td><td>bool</td><td><code>true</code></td><td>Enable EBS optimization</td></tr>
+    <tr><td><code>create_iam_instance_profile</code></td><td>bool</td><td><code>true</code></td><td>Create IAM instance profile</td></tr>
+    <tr><td><code>enable_ssm</code></td><td>bool</td><td><code>true</code></td><td>Attach SSM policy</td></tr>
+    <tr><td><code>root_block_device</code></td><td>object</td><td>gp3/20GB/encrypted</td><td>Root volume configuration</td></tr>
+    <tr><td><code>additional_ebs_volumes</code></td><td>list(object)</td><td><code>[]</code></td><td>Additional EBS volumes</td></tr>
+    <tr><td><code>create_security_group</code></td><td>bool</td><td><code>true</code></td><td>Create a security group</td></tr>
+    <tr><td><code>associate_public_ip</code></td><td>bool</td><td><code>false</code></td><td>Associate public IP</td></tr>
+    <tr><td><code>metadata_http_tokens</code></td><td>string</td><td><code>"required"</code></td><td>IMDSv2 token requirement</td></tr>
+    <tr><td><code>metadata_hop_limit</code></td><td>number</td><td><code>1</code></td><td>Metadata hop limit</td></tr>
+    <tr><td><code>tenancy</code></td><td>string</td><td><code>"default"</code></td><td>Instance tenancy</td></tr>
+    <tr><td><code>tags</code></td><td>map(string)</td><td><code>{}</code></td><td>Resource tags</td></tr>
+  </tbody>
+</table>
+
+<!-- Deployment -->
+<h2>Deployment</h2>
+<pre>
+# Clone the repository
+git clone https://github.com/kogunlowo123/terraform-aws-ec2-instance.git
+cd terraform-aws-ec2-instance
+
+# Initialize Terraform
+terraform init
+
+# Review the execution plan
+terraform plan
+
+# Apply the configuration
+terraform apply
+
+# To destroy all resources
+terraform destroy
+</pre>
+
+<!-- Links -->
+<h2>Links</h2>
+<div class="links-section">
+  <p><a href="https://github.com/kogunlowo123/terraform-aws-ec2-instance">GitHub Repository</a></p>
+  <p><a href="https://github.com/kogunlowo123/terraform-aws-ec2-instance/blob/main/README.md">README.md</a></p>
+  <p><a href="https://docs.aws.amazon.com/ec2/">AWS EC2 Documentation</a></p>
+</div>
+
+<!-- Footer -->
+<footer>
+  <p>Generated on 2026-03-15 &mdash; terraform-aws-ec2-instance Architecture Document</p>
+  <p>Terraform >= 1.3.0 &bull; AWS Provider >= 5.0, < 6.0</p>
+</footer>
+
+</body>
+</html>
