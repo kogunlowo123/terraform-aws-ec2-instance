@@ -3,8 +3,8 @@
 ################################################################################
 
 resource "aws_launch_template" "this" {
-  name_prefix   = "${local.name}-"
-  image_id      = local.ami_id
+  name_prefix   = "${var.name}-"
+  image_id      = var.ami_id != "" ? var.ami_id : data.aws_ami.amazon_linux.id
   instance_type = var.instance_type
   key_name      = var.key_name
 
@@ -22,9 +22,9 @@ resource "aws_launch_template" "this" {
   }
 
   dynamic "iam_instance_profile" {
-    for_each = local.iam_instance_profile_name != null ? [1] : []
+    for_each = var.create_iam_instance_profile ? [aws_iam_instance_profile.this[0].name] : (var.iam_instance_profile_name != null ? [var.iam_instance_profile_name] : [])
     content {
-      name = local.iam_instance_profile_name
+      name = iam_instance_profile.value
     }
   }
 
@@ -44,14 +44,9 @@ resource "aws_launch_template" "this" {
 
   network_interfaces {
     associate_public_ip_address = var.associate_public_ip
-    security_groups             = local.security_group_ids
+    security_groups             = var.create_security_group ? concat([aws_security_group.this[0].id], var.security_group_ids) : var.security_group_ids
     subnet_id                   = var.subnet_id
     delete_on_termination       = true
-
-    dynamic "private_ip_address" {
-      for_each = []
-      content {}
-    }
   }
 
   user_data = var.user_data_base64 != null ? var.user_data_base64 : (
@@ -60,15 +55,15 @@ resource "aws_launch_template" "this" {
 
   tag_specifications {
     resource_type = "instance"
-    tags          = local.tags
+    tags          = merge(var.tags, { Name = var.name })
   }
 
   tag_specifications {
     resource_type = "volume"
-    tags          = local.tags
+    tags          = merge(var.tags, { Name = var.name })
   }
 
-  tags = local.tags
+  tags = merge(var.tags, { Name = var.name })
 
   lifecycle {
     create_before_destroy = true
@@ -91,7 +86,7 @@ resource "aws_instance" "this" {
   placement_group   = var.placement_group
   tenancy           = var.tenancy
 
-  tags = local.tags
+  tags = merge(var.tags, { Name = var.name })
 
   lifecycle {
     ignore_changes = [
@@ -110,11 +105,11 @@ resource "aws_network_interface" "this" {
   count = 0
 
   subnet_id       = var.subnet_id
-  security_groups = local.security_group_ids
+  security_groups = var.create_security_group ? concat([aws_security_group.this[0].id], var.security_group_ids) : var.security_group_ids
   private_ips     = var.private_ip != null ? [var.private_ip] : null
 
-  tags = merge(local.tags, {
-    Name = "${local.name}-eni"
+  tags = merge(var.tags, {
+    Name = "${var.name}-eni"
   })
 }
 
@@ -133,8 +128,8 @@ resource "aws_ebs_volume" "this" {
   encrypted         = each.value.encrypted
   kms_key_id        = each.value.kms_key_id
 
-  tags = merge(local.tags, {
-    Name = "${local.name}-ebs-${each.key}"
+  tags = merge(var.tags, {
+    Name = "${var.name}-ebs-${each.key}"
   })
 }
 
@@ -155,12 +150,12 @@ resource "aws_volume_attachment" "this" {
 resource "aws_security_group" "this" {
   count = var.create_security_group ? 1 : 0
 
-  name_prefix = "${local.name}-"
-  description = "Security group for ${local.name} EC2 instance"
+  name_prefix = "${var.name}-"
+  description = "Security group for ${var.name} EC2 instance"
   vpc_id      = var.vpc_id
 
-  tags = merge(local.tags, {
-    Name = "${local.name}-sg"
+  tags = merge(var.tags, {
+    Name = "${var.name}-sg"
   })
 
   lifecycle {

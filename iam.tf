@@ -20,11 +20,11 @@ data "aws_iam_policy_document" "assume_role" {
 resource "aws_iam_role" "this" {
   count = var.create_iam_instance_profile ? 1 : 0
 
-  name_prefix        = "${local.name}-"
+  name_prefix        = "${var.name}-"
   assume_role_policy = data.aws_iam_policy_document.assume_role[0].json
-  description        = "IAM role for ${local.name} EC2 instance"
+  description        = "IAM role for ${var.name} EC2 instance"
 
-  tags = local.tags
+  tags = merge(var.tags, { Name = var.name })
 }
 
 ################################################################################
@@ -34,10 +34,10 @@ resource "aws_iam_role" "this" {
 resource "aws_iam_instance_profile" "this" {
   count = var.create_iam_instance_profile ? 1 : 0
 
-  name_prefix = "${local.name}-"
+  name_prefix = "${var.name}-"
   role        = aws_iam_role.this[0].name
 
-  tags = local.tags
+  tags = merge(var.tags, { Name = var.name })
 }
 
 ################################################################################
